@@ -1,4 +1,4 @@
-use include_dir::{include_dir, Dir, DirEntry};
+use include_dir::{include_dir, Dir, DirEntry, File};
 use serde::Deserialize;
 use std::path::Path;
 
@@ -17,23 +17,47 @@ fn copy_compatible_skills(embedded: &Dir<'_>, destination: &Path) -> std::io::Re
         let Some(skill_name) = skill_dir.path().file_name() else {
             continue;
         };
-        let Some(skill_md) = skill_dir.get_file("SKILL.md") else {
+        let skill_name_str = skill_name.to_string_lossy();
+        tracing::debug!("Found built-in skill: {}", skill_name_str);
+
+        let Some(skill_md) = get_file_with_relative_dir(skill_dir, "SKILL.md") else {
+            tracing::debug!("Skipping {} - missing SKILL.md", skill_name_str);
             continue;
         };
         let content = String::from_utf8_lossy(skill_md.contents());
         if let Some(reason) = skill_skip_reason(&content) {
             tracing::debug!(
                 "Skipping built-in skill '{}' on this host: {}",
-                skill_name.to_string_lossy(),
+                skill_name_str,
                 reason
             );
             continue;
         }
         let next_dest = destination.join(skill_name);
-        std::fs::create_dir_all(&next_dest)?;
-        copy_missing_entries(skill_dir, &next_dest)?;
+        if !next_dest.exists() {
+            tracing::debug!(
+                "Installing skill {} to {}",
+                skill_name_str,
+                next_dest.display()
+            );
+            std::fs::create_dir_all(&next_dest)?;
+            copy_missing_entries(skill_dir, &next_dest)?;
+        } else {
+            tracing::debug!(
+                "Skill {} already exists at {}",
+                skill_name_str,
+                next_dest.display()
+            );
+            // still copy missing files inside
+            copy_missing_entries(skill_dir, &next_dest)?;
+        }
     }
     Ok(())
+}
+
+fn get_file_with_relative_dir<'a>(dir: &'a Dir<'a>, relative_path: &str) -> Option<&'a File<'a>> {
+    let full_path = dir.path().join(relative_path);
+    dir.get_file(full_path)
 }
 
 fn copy_missing_entries(embedded: &Dir<'_>, destination: &Path) -> std::io::Result<()> {
@@ -44,7 +68,9 @@ fn copy_missing_entries(embedded: &Dir<'_>, destination: &Path) -> std::io::Resu
                     continue;
                 };
                 let next_dest = destination.join(name);
-                std::fs::create_dir_all(&next_dest)?;
+                if !next_dest.exists() {
+                    std::fs::create_dir_all(&next_dest)?;
+                }
                 copy_missing_entries(dir, &next_dest)?;
             }
             DirEntry::File(file) => {
@@ -53,6 +79,7 @@ fn copy_missing_entries(embedded: &Dir<'_>, destination: &Path) -> std::io::Resu
                 };
                 let out_path = destination.join(name);
                 if !out_path.exists() {
+                    tracing::debug!("Writing file: {}", out_path.display());
                     std::fs::write(out_path, file.contents())?;
                 }
             }
@@ -246,9 +273,21 @@ mod tests {
         }
         #[cfg(target_os = "macos")]
         {
-            assert!(skills_root.join("apple-notes").exists());
-            assert!(skills_root.join("apple-reminders").exists());
-            assert!(skills_root.join("apple-calendar").exists());
+            if command_exists("memo") {
+                assert!(skills_root.join("apple-notes").exists());
+            } else {
+                assert!(!skills_root.join("apple-notes").exists());
+            }
+            if command_exists("remindctl") {
+                assert!(skills_root.join("apple-reminders").exists());
+            } else {
+                assert!(!skills_root.join("apple-reminders").exists());
+            }
+            if command_exists("icalBuddy") {
+                assert!(skills_root.join("apple-calendar").exists());
+            } else {
+                assert!(!skills_root.join("apple-calendar").exists());
+            }
         }
         if command_exists("curl") {
             assert!(skills_root.join("find-skills").exists());

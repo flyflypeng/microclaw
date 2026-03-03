@@ -483,13 +483,14 @@ async fn main() -> anyhow::Result<()> {
     let legacy_skills_dir = data_root_dir.join("skills");
     migrate_legacy_runtime_layout(&data_root_dir, Path::new(&runtime_data_dir));
     migrate_legacy_skills_dir(&legacy_skills_dir, Path::new(&skills_data_dir));
-    builtin_skills::ensure_builtin_skills(Path::new(&skills_data_dir))?;
 
     if std::env::var("MICROCLAW_GATEWAY").is_ok() {
         logging::init_logging(&runtime_data_dir)?;
     } else {
         logging::init_console_logging();
     }
+
+    builtin_skills::ensure_builtin_skills(Path::new(&skills_data_dir))?;
 
     let db = db::Database::new(&runtime_data_dir)?;
     info!("Database initialized");
