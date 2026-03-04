@@ -196,7 +196,10 @@ impl ToolRegistry {
                 &config.data_dir,
             )),
             Box::new(sub_agent::SubAgentTool::new(config, db.clone())),
-            Box::new(activate_skill::ActivateSkillTool::new(&skills_data_dir)),
+            Box::new(activate_skill::ActivateSkillTool::new_with_runtime(
+                &skills_data_dir,
+                &config.data_dir,
+            )),
             Box::new(sync_skills::SyncSkillsTool::new(&skills_data_dir)),
             Box::new(todo::TodoReadTool::new(&config.data_dir)),
             Box::new(todo::TodoWriteTool::new(&config.data_dir)),
@@ -295,7 +298,10 @@ impl ToolRegistry {
             Box::new(time_math::GetCurrentTimeTool::new(config.timezone.clone())),
             Box::new(time_math::CompareTimeTool::new(config.timezone.clone())),
             Box::new(time_math::CalculateTool::new()),
-            Box::new(activate_skill::ActivateSkillTool::new(&skills_data_dir)),
+            Box::new(activate_skill::ActivateSkillTool::new_with_runtime(
+                &skills_data_dir,
+                &config.data_dir,
+            )),
             Box::new(structured_memory::StructuredMemorySearchTool::new(
                 db,
                 memory_backend,

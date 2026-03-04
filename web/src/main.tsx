@@ -44,6 +44,9 @@ import remarkGfm from 'remark-gfm'
 import './styles.css'
 import { SessionSidebar } from './components/session-sidebar'
 import { UsagePanel, type InjectionLogPoint, type MemoryObservability, type ReflectorRunPoint } from './components/usage-panel'
+import { SkillsSettings } from './components/skills-settings'
+import { ConfigFieldCard, type ConfigFieldCardProps } from './components/config-field-card'
+import { api, makeHeaders, ApiError } from './lib/api'
 import type { SessionItem } from './types'
 
 type ThinkExtraction = {
@@ -670,48 +673,6 @@ if (typeof document !== 'undefined') {
   document.documentElement.setAttribute('data-ui-theme', readUiTheme())
 }
 
-function makeHeaders(options: RequestInit = {}): HeadersInit {
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> | undefined),
-  }
-  if (options.body && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json'
-  }
-  // Backend currently validates CSRF by scope (including some GET admin endpoints),
-  // so attach token whenever present to avoid false 403 for authenticated browser sessions.
-  const csrf = readCookie('mc_csrf')
-  if (csrf && !hasHeader(headers, 'x-csrf-token')) {
-    headers['x-csrf-token'] = csrf
-  }
-  return headers
-}
-
-class ApiError extends Error {
-  status: number
-
-  constructor(message: string, status: number) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-  }
-}
-
-function hasHeader(headers: Record<string, string>, key: string): boolean {
-  const needle = key.toLowerCase()
-  return Object.keys(headers).some((k) => k.toLowerCase() === needle)
-}
-
-function readCookie(name: string): string {
-  if (typeof document === 'undefined') return ''
-  const encodedName = `${encodeURIComponent(name)}=`
-  const items = document.cookie ? document.cookie.split('; ') : []
-  for (const item of items) {
-    if (!item.startsWith(encodedName)) continue
-    return decodeURIComponent(item.slice(encodedName.length))
-  }
-  return ''
-}
-
 function readBootstrapTokenFromHash(): string {
   if (typeof window === 'undefined') return ''
   const raw = window.location.hash.startsWith('#')
@@ -740,18 +701,6 @@ function generatePassword(): string {
   }
   const fallback = Math.random().toString(36).slice(2, 14)
   return `mc-${fallback.slice(0, 6)}-${fallback.slice(6, 12)}!`
-}
-
-async function api<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const res = await fetch(path, { ...options, headers: makeHeaders(options), credentials: 'same-origin' })
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  if (!res.ok) {
-    throw new ApiError(String(data.error || data.message || `HTTP ${res.status}`), res.status)
-  }
-  return data as T
 }
 
 async function* parseSseFrames(
@@ -1141,22 +1090,6 @@ function dynamicFieldDraftValue(raw: unknown, valueType: 'string' | 'bool' | 'nu
 function normalizeWorkingDirIsolation(value: unknown): 'chat' | 'shared' {
   const normalized = String(value || '').trim().toLowerCase()
   return normalized === 'shared' ? 'shared' : 'chat'
-}
-
-type ConfigFieldCardProps = {
-  label: string
-  description: React.ReactNode
-  children: React.ReactNode
-}
-
-function ConfigFieldCard({ label, description, children }: ConfigFieldCardProps) {
-  return (
-    <Card className="p-3">
-      <Text size="2" weight="medium">{label}</Text>
-      <Text size="1" color="gray" className="mt-1 block">{description}</Text>
-      <div className="mt-2">{children}</div>
-    </Card>
-  )
 }
 
 type SoulPathPickerFieldProps = {
@@ -3031,6 +2964,7 @@ function App() {
                       <Text size="1" color="gray" className="px-2 pt-1 uppercase tracking-wide">Runtime</Text>
                       <Tabs.Trigger value="general" className="mc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 hover:bg-white/8">⚙️  General</Tabs.Trigger>
                       <Tabs.Trigger value="model" className="mc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 hover:bg-white/8">🧠  Model</Tabs.Trigger>
+                      <Tabs.Trigger value="skills" className="mc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 hover:bg-white/8">🧩  Skills</Tabs.Trigger>
 
                       <Text size="1" color="gray" className="px-2 pt-3 uppercase tracking-wide">Channels</Text>
                       <Tabs.Trigger value="telegram" className="mc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 hover:bg-white/8">✈️  Telegram</Tabs.Trigger>
@@ -3303,6 +3237,13 @@ function App() {
                             />
                           </ConfigFieldCard>
                         </div>
+                      </div>
+                    </Tabs.Content>
+
+                    <Tabs.Content value="skills">
+                      <div className={sectionCardClass} style={sectionCardStyle}>
+                        <Text size="3" weight="bold">Skills</Text>
+                        <SkillsSettings />
                       </div>
                     </Tabs.Content>
 

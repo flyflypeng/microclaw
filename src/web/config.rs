@@ -103,12 +103,14 @@ pub(super) async fn api_get_config(
     metrics_http_inc(&state).await;
     require_scope(&state, &headers, AuthScope::Read).await?;
 
+    let config_for_display =
+        crate::config::Config::load().unwrap_or_else(|_| state.app_state.config.clone());
     let path = config_path_for_save()?;
     Ok(Json(json!({
         "ok": true,
         "path": path,
-        "config": redact_config(&state.app_state.config),
-        "soul_files": list_available_soul_files(&state.app_state.config),
+        "config": redact_config(&config_for_display),
+        "soul_files": list_available_soul_files(&config_for_display),
         "requires_restart": true
     })))
 }
@@ -493,7 +495,8 @@ pub(super) async fn api_update_config(
     metrics_http_inc(&state).await;
     let identity = require_scope(&state, &headers, AuthScope::Admin).await?;
 
-    let mut cfg = state.app_state.config.clone();
+    let path = config_path_for_save()?;
+    let mut cfg = crate::config::Config::load().unwrap_or_else(|_| state.app_state.config.clone());
 
     if let Some(v) = body.llm_provider {
         cfg.llm_provider = v;
@@ -655,7 +658,6 @@ pub(super) async fn api_update_config(
         return Err((StatusCode::BAD_REQUEST, e.to_string()));
     }
 
-    let path = config_path_for_save()?;
     cfg.save_yaml(&path.to_string_lossy())
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
