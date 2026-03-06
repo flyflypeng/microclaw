@@ -1422,14 +1422,18 @@ async fn send_streaming_response(
                 // For separate_message mode: don't edit at all during streaming
                 // Wait until the end to show the complete answer
                 // This ensures reasoning appears BEFORE answer in the final order
-                let should_skip_edit = config.reasoning_display == ReasoningDisplayMode::SeparateMessage;
+                let should_skip_edit =
+                    config.reasoning_display == ReasoningDisplayMode::SeparateMessage;
 
                 // Check if we should edit now
                 let should_edit = last_edit_time.elapsed() >= edit_interval
                     || streaming_state.edit_count < 3 // Edit more frequently at start
                     || streaming_state.buffer.len().is_multiple_of(100); // Edit every 100 chars
 
-                if should_edit && streaming_state.edit_count < config.max_edits_per_message && !should_skip_edit {
+                if should_edit
+                    && streaming_state.edit_count < config.max_edits_per_message
+                    && !should_skip_edit
+                {
                     let display_text = if streaming_state.in_reasoning
                         && config.reasoning_display == ReasoningDisplayMode::Inline
                     {
@@ -1478,7 +1482,8 @@ async fn send_streaming_response(
             AgentEvent::ToolStart { name, .. } => {
                 // Show tool usage (but skip in separate_message mode to preserve order)
                 if streaming_state.edit_count < config.max_edits_per_message {
-                    let should_skip_edit = config.reasoning_display == ReasoningDisplayMode::SeparateMessage;
+                    let should_skip_edit =
+                        config.reasoning_display == ReasoningDisplayMode::SeparateMessage;
                     if !should_skip_edit {
                         let tool_text =
                             format!("{}\n\n🔧 Using tool: {}", streaming_state.buffer, name);
@@ -1497,7 +1502,7 @@ async fn send_streaming_response(
 
     // For separate_message mode: FIRST send reasoning message, THEN edit answer
     // This ensures reasoning appears BEFORE answer (Telegram shows older messages at top)
-    
+
     // Step 1: Send reasoning as a NEW message FIRST (appears above/before answer)
     if config.reasoning_display == ReasoningDisplayMode::SeparateMessage {
         if let Some(reasoning_text) = reasoning {

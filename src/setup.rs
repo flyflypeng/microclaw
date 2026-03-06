@@ -609,7 +609,11 @@ const PROVIDER_PRESETS: &[ProviderPreset] = &[
         label: "Qwen Code (DashScope)",
         protocol: ProviderProtocol::OpenAiCompat,
         default_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        models: &["qwen3-coder-plus", "qwen3-coder-flash", "qwen3-coder-plus-latest"],
+        models: &[
+            "qwen3-coder-plus",
+            "qwen3-coder-flash",
+            "qwen3-coder-plus-latest",
+        ],
     },
     ProviderPreset {
         id: "deepseek",
