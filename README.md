@@ -353,6 +353,7 @@ See full manifest schema and examples: `docs/plugins/overview.md`.
 - `/stop` -- abort the current active run in this chat (keeps history/session data)
 - `/clear` -- clear current chat context (session + chat history), keep scheduled tasks
 - `/reset` -- clear current chat context (session + chat history) and scheduled task state
+- `/reset memory` -- clear current chat memory (chat AGENTS.md + structured memories), keep conversation and tasks
 - `/skills` -- list all available skills
 - `/reload-skills` -- reload skills from disk
 - `/archive` -- archive current in-memory session as markdown
@@ -946,7 +947,7 @@ All configuration is via `microclaw.config.yaml`:
 | `subagents.run_timeout_secs` | No | `900` | Timeout for a single sub-agent run |
 | `subagents.max_spawn_depth` | No | `1` | Maximum recursive sub-agent depth |
 | `subagents.max_children_per_run` | No | `5` | Maximum number of child runs created from one parent run |
-| `subagents.max_tokens_per_run` | No | `120000` | Per-run token budget ceiling used by `sessions_spawn` and `subagents_orchestrate` |
+| `subagents.max_tokens_per_run` | No | `400000` | Per-run token budget ceiling used by `sessions_spawn` and `subagents_orchestrate` |
 | `subagents.orchestrate_max_workers` | No | `5` | Worker cap for `subagents_orchestrate` fan-out |
 | `subagents.announce_to_chat` | No | `true` | Post sub-agent completion notices back into the parent chat |
 | `subagents.thread_bound_routing_enabled` | No | `true` | Route thread replies to the currently focused sub-agent when supported by the channel |

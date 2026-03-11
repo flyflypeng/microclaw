@@ -5,6 +5,7 @@ use tracing::info;
 
 use crate::memory_backend::MemoryBackend;
 use microclaw_core::llm_types::ToolDefinition;
+use microclaw_storage::db::Memory;
 use microclaw_storage::db::Database;
 
 use super::{auth_context_from_input, authorize_chat_access, schema_object, Tool, ToolResult};
@@ -20,6 +21,13 @@ impl StructuredMemorySearchTool {
         let _ = db;
         Self { memory_backend }
     }
+
+    fn filter_visible_memories(chat_id: i64, memories: Vec<Memory>) -> Vec<Memory> {
+        memories
+            .into_iter()
+            .filter(|m| m.chat_id.is_none() || m.chat_id == Some(chat_id))
+            .collect()
+    }
 }
 
 #[async_trait]
@@ -31,12 +39,12 @@ impl Tool for StructuredMemorySearchTool {
     fn definition(&self) -> ToolDefinition {
         ToolDefinition {
             name: "structured_memory_search".into(),
-            description: "Search structured memories extracted from past conversations. Returns memories whose content contains the query string.".into(),
+            description: "Search structured memories extracted from past conversations. Returns memories whose content contains the query string. Leave query empty to list recent visible memories.".into(),
             input_schema: schema_object(
                 json!({
                     "query": {
                         "type": "string",
-                        "description": "Keyword(s) to search for in memory content"
+                        "description": "Keyword(s) to search for in memory content; leave empty to list recent visible memories"
                     },
                     "limit": {
                         "type": "integer",
@@ -47,16 +55,17 @@ impl Tool for StructuredMemorySearchTool {
                         "description": "Whether to include archived memories in results (default false)"
                     }
                 }),
-                &["query"],
+                &[],
             ),
         }
     }
 
     async fn execute(&self, input: serde_json::Value) -> ToolResult {
-        let query = match input.get("query").and_then(|v| v.as_str()) {
-            Some(q) if !q.trim().is_empty() => q.trim().to_string(),
-            _ => return ToolResult::error("Missing or empty 'query' parameter".into()),
-        };
+        let query = input
+            .get("query")
+            .and_then(|v| v.as_str())
+            .map(|q| q.trim().to_string())
+            .unwrap_or_default();
         let limit = input
             .get("limit")
             .and_then(|v| v.as_u64())
@@ -75,15 +84,55 @@ impl Tool for StructuredMemorySearchTool {
             "structured_memory_search: query={query:?} chat_id={chat_id} limit={limit} include_archived={include_archived}"
         );
 
-        match self
-            .memory_backend
-            .search_memories_with_options(chat_id, &query, limit, include_archived, true)
-            .await
-        {
+        let result = if query.is_empty() {
+            let mut memories = match self.memory_backend.get_all_memories_for_chat(Some(chat_id)).await {
+                Ok(m) => m,
+                Err(e) => return ToolResult::error(format!("Search failed: {e}")),
+            };
+            let mut global = match self.memory_backend.get_all_memories_for_chat(None).await {
+                Ok(m) => m,
+                Err(e) => return ToolResult::error(format!("Search failed: {e}")),
+            };
+            memories.append(&mut global);
+            memories.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+            if !include_archived {
+                memories.retain(|m| !m.is_archived);
+            }
+            memories.truncate(limit);
+            Ok(memories)
+        } else {
+            self.memory_backend
+                .search_memories_with_options(chat_id, &query, limit, include_archived, true)
+                .await
+        };
+
+        match result {
             Ok(memories) if memories.is_empty() => {
-                ToolResult::success("No memories found matching that query.".into())
+                let message = if query.is_empty() {
+                    "No visible memories found.".to_string()
+                } else {
+                    "No memories found matching that query.".to_string()
+                };
+                ToolResult::success(message)
             }
             Ok(memories) => {
+                let original_count = memories.len();
+                let memories = Self::filter_visible_memories(chat_id, memories);
+                if memories.is_empty() {
+                    let message = if query.is_empty() {
+                        "No visible memories found.".to_string()
+                    } else {
+                        "No visible memories found matching that query.".to_string()
+                    };
+                    return ToolResult::success(message);
+                }
+                let filtered_count = original_count.saturating_sub(memories.len());
+                if filtered_count > 0 {
+                    info!(
+                        "structured_memory_search: filtered {} cross-chat memories for chat_id={}",
+                        filtered_count, chat_id
+                    );
+                }
                 let lines: Vec<String> = memories
                     .iter()
                     .map(|m| {
@@ -155,14 +204,16 @@ impl Tool for StructuredMemoryDeleteTool {
             match mem.chat_id {
                 Some(mem_chat_id) => {
                     if let Err(e) = authorize_chat_access(&input, mem_chat_id) {
-                        return ToolResult::error(e);
+                        return ToolResult::error(format!(
+                            "{e} (memory id={id}, owner_chat_id={mem_chat_id})"
+                        ));
                     }
                 }
                 None => {
                     // Global memory — requires control chat
                     if !auth.is_control_chat() {
                         return ToolResult::error(format!(
-                            "Permission denied: only control chats can delete global memories (caller: {})",
+                            "Permission denied: only control chats can delete global memories (caller: {}, memory id={id}, owner_scope=global)",
                             auth.caller_chat_id
                         ));
                     }
@@ -249,13 +300,15 @@ impl Tool for StructuredMemoryUpdateTool {
             match mem.chat_id {
                 Some(mem_chat_id) => {
                     if let Err(e) = authorize_chat_access(&input, mem_chat_id) {
-                        return ToolResult::error(e);
+                        return ToolResult::error(format!(
+                            "{e} (memory id={id}, owner_chat_id={mem_chat_id})"
+                        ));
                     }
                 }
                 None => {
                     if !auth.is_control_chat() {
                         return ToolResult::error(format!(
-                            "Permission denied: only control chats can update global memories (caller: {})",
+                            "Permission denied: only control chats can update global memories (caller: {}, memory id={id}, owner_scope=global)",
                             auth.caller_chat_id
                         ));
                     }
@@ -325,11 +378,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_search_empty_query_errors() {
+    async fn test_search_empty_query_lists_no_visible_memories() {
         let db = test_db();
         let tool = StructuredMemorySearchTool::new(db.clone(), test_backend(db));
         let result = tool.execute(json!({"query": "  "})).await;
-        assert!(result.is_error);
+        assert!(!result.is_error);
+        assert!(result.content.contains("No visible memories"));
     }
 
     #[tokio::test]
@@ -361,6 +415,23 @@ mod tests {
             .await;
         assert!(result.is_error);
         assert!(result.content.contains("Permission denied"));
+    }
+
+    #[tokio::test]
+    async fn test_search_empty_query_lists_recent_visible_memories() {
+        let db = test_db();
+        db.insert_memory(Some(100), "chat memory", "PROFILE").unwrap();
+        db.insert_memory(None, "global memory", "KNOWLEDGE").unwrap();
+        let tool = StructuredMemorySearchTool::new(db.clone(), test_backend(db));
+        let result = tool
+            .execute(json!({
+                "limit": 10,
+                "__microclaw_auth": {"caller_chat_id": 100, "control_chat_ids": []}
+            }))
+            .await;
+        assert!(!result.is_error, "{}", result.content);
+        assert!(result.content.contains("chat memory"));
+        assert!(result.content.contains("global memory"));
     }
 
     #[tokio::test]

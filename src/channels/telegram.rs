@@ -1342,6 +1342,12 @@ fn split_response_text(text: &str) -> Vec<String> {
     chunks
 }
 
+fn should_prefer_plain_text(text: &str) -> bool {
+    // Telegram MarkdownV2 is especially fragile around fenced code blocks that get split
+    // across messages. Prefer plain text for those payloads to preserve delivery.
+    text.contains("```")
+}
+
 fn escape_markdown_v2(text: &str) -> String {
     const ESCAPE_CHARS: &str = r"\_*[]()~`>#+-=|{}.!";
     let mut escaped = String::with_capacity(text.len());
@@ -1661,6 +1667,17 @@ async fn send_telegram_markdown_or_plain(
     text: &str,
     message_thread_id: Option<ThreadId>,
 ) {
+    if should_prefer_plain_text(text) {
+        let mut plain_req = bot.send_message(chat_id, text);
+        if let Some(tid) = message_thread_id {
+            plain_req = plain_req.message_thread_id(tid);
+        }
+        if let Err(err) = plain_req.await {
+            warn!("Telegram plain text send failed: {err}");
+        }
+        return;
+    }
+
     let markdown_text = render_markdown_v2_safe(text);
     let mut req = bot
         .send_message(chat_id, markdown_text)
@@ -1676,7 +1693,9 @@ async fn send_telegram_markdown_or_plain(
         if let Some(tid) = message_thread_id {
             plain_req = plain_req.message_thread_id(tid);
         }
-        let _ = plain_req.await;
+        if let Err(err) = plain_req.await {
+            warn!("Telegram plain text fallback send failed: {err}");
+        }
     }
 }
 
@@ -1904,6 +1923,19 @@ mod tests {
         assert!(rendered.contains("`cargo build`"));
         assert!(rendered.contains("src/\\(core\\)\\."));
     }
+
+    #[test]
+    fn test_should_prefer_plain_text_for_fenced_code_blocks() {
+        let input = "Here is JSON:\n```json\n{\"ok\":true}\n```";
+        assert!(should_prefer_plain_text(input));
+    }
+
+    #[test]
+    fn test_should_not_prefer_plain_text_for_regular_markdown() {
+        let input = "## Heading\nUse `cargo test` here.";
+        assert!(!should_prefer_plain_text(input));
+    }
+
     #[test]
     fn test_split_response_text_long() {
         // Create a string longer than 4096 chars with newlines

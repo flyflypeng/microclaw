@@ -56,6 +56,26 @@ pub async fn handle_chat_command(
 ) -> Option<String> {
     let trimmed = normalized_slash_command(command_text)?.trim();
 
+    if trimmed == "/reset memory" {
+        let _ = call_blocking(state.db.clone(), move |db| db.clear_chat_memory(chat_id)).await;
+        let groups_dir = std::path::PathBuf::from(&state.config.data_dir).join("groups");
+        let chat_memory_path = groups_dir
+            .join(caller_channel)
+            .join(chat_id.to_string())
+            .join("AGENTS.md");
+        if let Err(e) = std::fs::remove_file(&chat_memory_path) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                warn!(
+                    "Failed to remove chat memory file for chat {} at {}: {}",
+                    chat_id,
+                    chat_memory_path.display(),
+                    e
+                );
+            }
+        }
+        return Some("Memory cleared for this chat.".to_string());
+    }
+
     if trimmed == "/clear" {
         let _ = call_blocking(state.db.clone(), move |db| {
             db.clear_chat_conversation(chat_id)

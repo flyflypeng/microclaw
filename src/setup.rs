@@ -163,6 +163,46 @@ fn a2a_peers_json_key() -> &'static str {
     "A2A_PEERS_JSON"
 }
 
+fn subagents_max_concurrent_key() -> &'static str {
+    "SUBAGENTS_MAX_CONCURRENT"
+}
+
+fn subagents_max_active_per_chat_key() -> &'static str {
+    "SUBAGENTS_MAX_ACTIVE_PER_CHAT"
+}
+
+fn subagents_run_timeout_secs_key() -> &'static str {
+    "SUBAGENTS_RUN_TIMEOUT_SECS"
+}
+
+fn subagents_announce_to_chat_key() -> &'static str {
+    "SUBAGENTS_ANNOUNCE_TO_CHAT"
+}
+
+fn subagents_max_spawn_depth_key() -> &'static str {
+    "SUBAGENTS_MAX_SPAWN_DEPTH"
+}
+
+fn subagents_max_children_per_run_key() -> &'static str {
+    "SUBAGENTS_MAX_CHILDREN_PER_RUN"
+}
+
+fn subagents_thread_bound_routing_enabled_key() -> &'static str {
+    "SUBAGENTS_THREAD_BOUND_ROUTING_ENABLED"
+}
+
+fn subagents_announce_relay_interval_secs_key() -> &'static str {
+    "SUBAGENTS_ANNOUNCE_RELAY_INTERVAL_SECS"
+}
+
+fn subagents_max_tokens_per_run_key() -> &'static str {
+    "SUBAGENTS_MAX_TOKENS_PER_RUN"
+}
+
+fn subagents_orchestrate_max_workers_key() -> &'static str {
+    "SUBAGENTS_ORCHESTRATE_MAX_WORKERS"
+}
+
 fn telegram_llm_provider_key() -> &'static str {
     "TELEGRAM_LLM_PROVIDER"
 }
@@ -1073,6 +1113,106 @@ impl SetupApp {
                     secret: false,
                 },
                 Field {
+                    key: subagents_max_concurrent_key().into(),
+                    label: "Subagents max concurrent runs".into(),
+                    value: existing
+                        .get(subagents_max_concurrent_key())
+                        .cloned()
+                        .unwrap_or_else(|| "4".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_max_active_per_chat_key().into(),
+                    label: "Subagents max active runs per chat".into(),
+                    value: existing
+                        .get(subagents_max_active_per_chat_key())
+                        .cloned()
+                        .unwrap_or_else(|| "5".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_run_timeout_secs_key().into(),
+                    label: "Subagents run timeout secs".into(),
+                    value: existing
+                        .get(subagents_run_timeout_secs_key())
+                        .cloned()
+                        .unwrap_or_else(|| "900".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_announce_to_chat_key().into(),
+                    label: "Subagents announce to chat (true/false)".into(),
+                    value: existing
+                        .get(subagents_announce_to_chat_key())
+                        .cloned()
+                        .unwrap_or_else(|| "true".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_max_spawn_depth_key().into(),
+                    label: "Subagents max spawn depth".into(),
+                    value: existing
+                        .get(subagents_max_spawn_depth_key())
+                        .cloned()
+                        .unwrap_or_else(|| "1".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_max_children_per_run_key().into(),
+                    label: "Subagents max children per run".into(),
+                    value: existing
+                        .get(subagents_max_children_per_run_key())
+                        .cloned()
+                        .unwrap_or_else(|| "5".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_thread_bound_routing_enabled_key().into(),
+                    label: "Subagents thread-bound routing enabled (true/false)".into(),
+                    value: existing
+                        .get(subagents_thread_bound_routing_enabled_key())
+                        .cloned()
+                        .unwrap_or_else(|| "true".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_announce_relay_interval_secs_key().into(),
+                    label: "Subagents announce relay interval secs".into(),
+                    value: existing
+                        .get(subagents_announce_relay_interval_secs_key())
+                        .cloned()
+                        .unwrap_or_else(|| "15".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_max_tokens_per_run_key().into(),
+                    label: "Subagents max tokens per run".into(),
+                    value: existing
+                        .get(subagents_max_tokens_per_run_key())
+                        .cloned()
+                        .unwrap_or_else(|| "400000".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: subagents_orchestrate_max_workers_key().into(),
+                    label: "Subagents orchestrate max workers".into(),
+                    value: existing
+                        .get(subagents_orchestrate_max_workers_key())
+                        .cloned()
+                        .unwrap_or_else(|| "5".into()),
+                    required: false,
+                    secret: false,
+                },
+                Field {
                     key: telegram_bot_count_key().into(),
                     label: format!("Telegram bot count (1-{MAX_BOT_SLOTS})"),
                     value: existing
@@ -1764,6 +1904,46 @@ impl SetupApp {
                             map.insert(a2a_peers_json_key().into(), peers_json);
                         }
                     }
+                    map.insert(
+                        subagents_max_concurrent_key().into(),
+                        config.subagents.max_concurrent.to_string(),
+                    );
+                    map.insert(
+                        subagents_max_active_per_chat_key().into(),
+                        config.subagents.max_active_per_chat.to_string(),
+                    );
+                    map.insert(
+                        subagents_run_timeout_secs_key().into(),
+                        config.subagents.run_timeout_secs.to_string(),
+                    );
+                    map.insert(
+                        subagents_announce_to_chat_key().into(),
+                        config.subagents.announce_to_chat.to_string(),
+                    );
+                    map.insert(
+                        subagents_max_spawn_depth_key().into(),
+                        config.subagents.max_spawn_depth.to_string(),
+                    );
+                    map.insert(
+                        subagents_max_children_per_run_key().into(),
+                        config.subagents.max_children_per_run.to_string(),
+                    );
+                    map.insert(
+                        subagents_thread_bound_routing_enabled_key().into(),
+                        config.subagents.thread_bound_routing_enabled.to_string(),
+                    );
+                    map.insert(
+                        subagents_announce_relay_interval_secs_key().into(),
+                        config.subagents.announce_relay_interval_secs.to_string(),
+                    );
+                    map.insert(
+                        subagents_max_tokens_per_run_key().into(),
+                        config.subagents.max_tokens_per_run.to_string(),
+                    );
+                    map.insert(
+                        subagents_orchestrate_max_workers_key().into(),
+                        config.subagents.orchestrate_max_workers.to_string(),
+                    );
                     let telegram_bot_token = if !config.telegram_bot_token.trim().is_empty() {
                         config.telegram_bot_token
                     } else if let Some(ch_cfg) = config.channels.get("telegram") {
@@ -3386,6 +3566,47 @@ impl SetupApp {
             }
         }
 
+        for key in [
+            subagents_max_concurrent_key(),
+            subagents_max_active_per_chat_key(),
+            subagents_run_timeout_secs_key(),
+            subagents_max_spawn_depth_key(),
+            subagents_max_children_per_run_key(),
+            subagents_announce_relay_interval_secs_key(),
+            subagents_max_tokens_per_run_key(),
+            subagents_orchestrate_max_workers_key(),
+        ] {
+            let raw = self.field_value(key);
+            if raw.is_empty() {
+                continue;
+            }
+            let value = raw
+                .parse::<u64>()
+                .map_err(|_| MicroClawError::Config(format!("{key} must be a positive integer")))?;
+            if value == 0 {
+                return Err(MicroClawError::Config(format!(
+                    "{key} must be greater than 0"
+                )));
+            }
+        }
+
+        for key in [
+            subagents_announce_to_chat_key(),
+            subagents_thread_bound_routing_enabled_key(),
+        ] {
+            let raw = self.field_value(key);
+            if raw.is_empty() {
+                continue;
+            }
+            let lower = raw.to_ascii_lowercase();
+            let valid = matches!(lower.as_str(), "true" | "false" | "1" | "0" | "yes" | "no");
+            if !valid {
+                return Err(MicroClawError::Config(format!(
+                    "{key} must be true/false (or 1/0)"
+                )));
+            }
+        }
+
         let embedding_dim_raw = self.field_value("EMBEDDING_DIM");
         if !embedding_dim_raw.is_empty() {
             let embedding_dim = embedding_dim_raw.parse::<usize>().map_err(|_| {
@@ -3871,6 +4092,16 @@ impl SetupApp {
             "WEB_HOOKS_DEFAULT_SESSION_KEY" => "hook:ingress".into(),
             "WEB_HOOKS_ALLOW_REQUEST_SESSION_KEY" => "false".into(),
             "A2A_ENABLED" => "false".into(),
+            "SUBAGENTS_MAX_CONCURRENT" => "4".into(),
+            "SUBAGENTS_MAX_ACTIVE_PER_CHAT" => "5".into(),
+            "SUBAGENTS_RUN_TIMEOUT_SECS" => "900".into(),
+            "SUBAGENTS_ANNOUNCE_TO_CHAT" => "true".into(),
+            "SUBAGENTS_MAX_SPAWN_DEPTH" => "1".into(),
+            "SUBAGENTS_MAX_CHILDREN_PER_RUN" => "5".into(),
+            "SUBAGENTS_THREAD_BOUND_ROUTING_ENABLED" => "true".into(),
+            "SUBAGENTS_ANNOUNCE_RELAY_INTERVAL_SECS" => "15".into(),
+            "SUBAGENTS_MAX_TOKENS_PER_RUN" => "400000".into(),
+            "SUBAGENTS_ORCHESTRATE_MAX_WORKERS" => "5".into(),
             _ if key == telegram_bot_count_key() => TELEGRAM_DEFAULT_BOT_COUNT.to_string(),
             _ if key.starts_with("TELEGRAM_BOT") => {
                 if key.ends_with("_ENABLED") {
@@ -3962,17 +4193,27 @@ impl SetupApp {
             | "SHOW_THINKING" => "Model",
             "EMBEDDING_PROVIDER" | "EMBEDDING_API_KEY" | "EMBEDDING_BASE_URL"
             | "EMBEDDING_MODEL" | "EMBEDDING_DIM" => "Embedding",
+            "A2A_ENABLED"
+            | "A2A_PUBLIC_BASE_URL"
+            | "A2A_AGENT_NAME"
+            | "A2A_AGENT_DESCRIPTION"
+            | "A2A_SHARED_TOKENS"
+            | "A2A_PEERS_JSON" => "A2A",
+            "SUBAGENTS_MAX_CONCURRENT"
+            | "SUBAGENTS_MAX_ACTIVE_PER_CHAT"
+            | "SUBAGENTS_RUN_TIMEOUT_SECS"
+            | "SUBAGENTS_ANNOUNCE_TO_CHAT"
+            | "SUBAGENTS_MAX_SPAWN_DEPTH"
+            | "SUBAGENTS_MAX_CHILDREN_PER_RUN"
+            | "SUBAGENTS_THREAD_BOUND_ROUTING_ENABLED"
+            | "SUBAGENTS_ANNOUNCE_RELAY_INTERVAL_SECS"
+            | "SUBAGENTS_MAX_TOKENS_PER_RUN"
+            | "SUBAGENTS_ORCHESTRATE_MAX_WORKERS" => "Sub-agents",
             "ENABLED_CHANNELS"
             | "WEB_HOOKS_TOKEN"
             | "WEB_HOOKS_DEFAULT_SESSION_KEY"
             | "WEB_HOOKS_ALLOW_REQUEST_SESSION_KEY"
             | "WEB_HOOKS_ALLOWED_SESSION_KEY_PREFIXES"
-            | "A2A_ENABLED"
-            | "A2A_PUBLIC_BASE_URL"
-            | "A2A_AGENT_NAME"
-            | "A2A_AGENT_DESCRIPTION"
-            | "A2A_SHARED_TOKENS"
-            | "A2A_PEERS_JSON"
             | "TELEGRAM_BOT_TOKEN"
             | "BOT_USERNAME"
             | "TELEGRAM_ACCOUNT_ID"
@@ -4064,6 +4305,46 @@ impl SetupApp {
             "A2A_PEERS_JSON" => (
                 "JSON object of outbound peers keyed by name. Supports base_url, bearer_token, description, default_session_key, enabled.",
                 "Example: {\"worker\":{\"base_url\":\"https://worker.example.com\",\"bearer_token\":\"shared-a2a-token\"}}",
+            ),
+            "SUBAGENTS_MAX_CONCURRENT" => (
+                "Maximum number of subagent runs allowed to execute at the same time across the runtime.",
+                "Example: 4",
+            ),
+            "SUBAGENTS_MAX_ACTIVE_PER_CHAT" => (
+                "Maximum number of active subagent runs allowed in one chat.",
+                "Example: 5",
+            ),
+            "SUBAGENTS_RUN_TIMEOUT_SECS" => (
+                "Per-run timeout for one subagent before it is marked timed out.",
+                "Example: 1800",
+            ),
+            "SUBAGENTS_ANNOUNCE_TO_CHAT" => (
+                "Whether finished subagents post completion notices back to the parent chat.",
+                "Example: true or false",
+            ),
+            "SUBAGENTS_MAX_SPAWN_DEPTH" => (
+                "Maximum recursive subagent nesting depth.",
+                "Example: 1",
+            ),
+            "SUBAGENTS_MAX_CHILDREN_PER_RUN" => (
+                "Maximum active child runs that one parent run may create.",
+                "Example: 5",
+            ),
+            "SUBAGENTS_THREAD_BOUND_ROUTING_ENABLED" => (
+                "Route thread replies to the currently focused subagent when the channel supports it.",
+                "Example: true or false",
+            ),
+            "SUBAGENTS_ANNOUNCE_RELAY_INTERVAL_SECS" => (
+                "Polling interval for relaying pending subagent completion notices.",
+                "Example: 15",
+            ),
+            "SUBAGENTS_MAX_TOKENS_PER_RUN" => (
+                "Default token budget ceiling for sessions_spawn and subagents_orchestrate.",
+                "Example: 240000",
+            ),
+            "SUBAGENTS_ORCHESTRATE_MAX_WORKERS" => (
+                "Worker cap used by subagents_orchestrate fan-out.",
+                "Example: 5",
             ),
             "DATA_DIR" => (
                 "Root directory for runtime data (DB, sessions, memory, skills).",
@@ -4158,6 +4439,8 @@ impl SetupApp {
         const ORDER_MEMORY_BASE: usize = 21_000;
         const ORDER_EMBED_BASE: usize = 22_000;
         const ORDER_SANDBOX_BASE: usize = 23_000;
+        const ORDER_A2A_BASE: usize = 24_000;
+        const ORDER_SUBAGENTS_BASE: usize = 25_000;
 
         if key.starts_with("DYN_") {
             for (ch_idx, ch) in DYNAMIC_CHANNELS.iter().enumerate() {
@@ -4219,12 +4502,6 @@ impl SetupApp {
             "WEB_HOOKS_DEFAULT_SESSION_KEY" => ORDER_CHANNEL_BASE + 2,
             "WEB_HOOKS_ALLOW_REQUEST_SESSION_KEY" => ORDER_CHANNEL_BASE + 3,
             "WEB_HOOKS_ALLOWED_SESSION_KEY_PREFIXES" => ORDER_CHANNEL_BASE + 4,
-            "A2A_ENABLED" => ORDER_CHANNEL_BASE + 5,
-            "A2A_PUBLIC_BASE_URL" => ORDER_CHANNEL_BASE + 6,
-            "A2A_AGENT_NAME" => ORDER_CHANNEL_BASE + 7,
-            "A2A_AGENT_DESCRIPTION" => ORDER_CHANNEL_BASE + 8,
-            "A2A_SHARED_TOKENS" => ORDER_CHANNEL_BASE + 9,
-            "A2A_PEERS_JSON" => ORDER_CHANNEL_BASE + 10,
             "TELEGRAM_BOT_TOKEN" => ORDER_CHANNEL_BASE + 20,
             "BOT_USERNAME" => ORDER_CHANNEL_BASE + 21,
             "TELEGRAM_ACCOUNT_ID" => ORDER_CHANNEL_BASE + 22,
@@ -4287,9 +4564,27 @@ impl SetupApp {
             "EMBEDDING_BASE_URL" => ORDER_EMBED_BASE + 2,
             "EMBEDDING_MODEL" => ORDER_EMBED_BASE + 3,
             "EMBEDDING_DIM" => ORDER_EMBED_BASE + 4,
-            // 6) Sandbox (last)
+            // 6) Sandbox
             "SANDBOX_ENABLED" => ORDER_SANDBOX_BASE,
             "HIGH_RISK_TOOL_USER_CONFIRMATION_REQUIRED" => ORDER_SANDBOX_BASE + 1,
+            // 7) A2A
+            "A2A_ENABLED" => ORDER_A2A_BASE,
+            "A2A_PUBLIC_BASE_URL" => ORDER_A2A_BASE + 1,
+            "A2A_AGENT_NAME" => ORDER_A2A_BASE + 2,
+            "A2A_AGENT_DESCRIPTION" => ORDER_A2A_BASE + 3,
+            "A2A_SHARED_TOKENS" => ORDER_A2A_BASE + 4,
+            "A2A_PEERS_JSON" => ORDER_A2A_BASE + 5,
+            // 8) Sub-agents (last)
+            "SUBAGENTS_MAX_CONCURRENT" => ORDER_SUBAGENTS_BASE,
+            "SUBAGENTS_MAX_ACTIVE_PER_CHAT" => ORDER_SUBAGENTS_BASE + 1,
+            "SUBAGENTS_RUN_TIMEOUT_SECS" => ORDER_SUBAGENTS_BASE + 2,
+            "SUBAGENTS_ANNOUNCE_TO_CHAT" => ORDER_SUBAGENTS_BASE + 3,
+            "SUBAGENTS_MAX_SPAWN_DEPTH" => ORDER_SUBAGENTS_BASE + 4,
+            "SUBAGENTS_MAX_CHILDREN_PER_RUN" => ORDER_SUBAGENTS_BASE + 5,
+            "SUBAGENTS_THREAD_BOUND_ROUTING_ENABLED" => ORDER_SUBAGENTS_BASE + 6,
+            "SUBAGENTS_ANNOUNCE_RELAY_INTERVAL_SECS" => ORDER_SUBAGENTS_BASE + 7,
+            "SUBAGENTS_MAX_TOKENS_PER_RUN" => ORDER_SUBAGENTS_BASE + 8,
+            "SUBAGENTS_ORCHESTRATE_MAX_WORKERS" => ORDER_SUBAGENTS_BASE + 9,
             _ => usize::MAX,
         }
     }
@@ -4715,6 +5010,83 @@ fn save_config_yaml(
                 ))
             })?
     };
+    let subagents_max_concurrent =
+        get(subagents_max_concurrent_key())
+            .trim()
+            .parse::<usize>()
+            .map_err(|e| {
+                MicroClawError::Config(format!(
+                    "{} must be a positive integer: {e}",
+                    subagents_max_concurrent_key()
+                ))
+            })?;
+    let subagents_max_active_per_chat = get(subagents_max_active_per_chat_key())
+        .trim()
+        .parse::<usize>()
+        .map_err(|e| {
+            MicroClawError::Config(format!(
+                "{} must be a positive integer: {e}",
+                subagents_max_active_per_chat_key()
+            ))
+        })?;
+    let subagents_run_timeout_secs = get(subagents_run_timeout_secs_key())
+        .trim()
+        .parse::<u64>()
+        .map_err(|e| {
+            MicroClawError::Config(format!(
+                "{} must be a positive integer: {e}",
+                subagents_run_timeout_secs_key()
+            ))
+        })?;
+    let subagents_announce_to_chat =
+        parse_boolish(&get(subagents_announce_to_chat_key()), true)?;
+    let subagents_max_spawn_depth = get(subagents_max_spawn_depth_key())
+        .trim()
+        .parse::<usize>()
+        .map_err(|e| {
+            MicroClawError::Config(format!(
+                "{} must be a positive integer: {e}",
+                subagents_max_spawn_depth_key()
+            ))
+        })?;
+    let subagents_max_children_per_run = get(subagents_max_children_per_run_key())
+        .trim()
+        .parse::<usize>()
+        .map_err(|e| {
+            MicroClawError::Config(format!(
+                "{} must be a positive integer: {e}",
+                subagents_max_children_per_run_key()
+            ))
+        })?;
+    let subagents_thread_bound_routing_enabled =
+        parse_boolish(&get(subagents_thread_bound_routing_enabled_key()), true)?;
+    let subagents_announce_relay_interval_secs = get(subagents_announce_relay_interval_secs_key())
+        .trim()
+        .parse::<u64>()
+        .map_err(|e| {
+            MicroClawError::Config(format!(
+                "{} must be a positive integer: {e}",
+                subagents_announce_relay_interval_secs_key()
+            ))
+        })?;
+    let subagents_max_tokens_per_run = get(subagents_max_tokens_per_run_key())
+        .trim()
+        .parse::<i64>()
+        .map_err(|e| {
+            MicroClawError::Config(format!(
+                "{} must be a positive integer: {e}",
+                subagents_max_tokens_per_run_key()
+            ))
+        })?;
+    let subagents_orchestrate_max_workers = get(subagents_orchestrate_max_workers_key())
+        .trim()
+        .parse::<usize>()
+        .map_err(|e| {
+            MicroClawError::Config(format!(
+                "{} must be a positive integer: {e}",
+                subagents_orchestrate_max_workers_key()
+            ))
+        })?;
     let telegram_token = if !get("TELEGRAM_BOT_TOKEN").trim().is_empty() {
         get("TELEGRAM_BOT_TOKEN")
     } else {
@@ -5240,6 +5612,47 @@ fn save_config_yaml(
             append_yaml_value(&mut yaml, 4, &yaml_peers);
         }
     }
+    yaml.push_str("subagents:\n");
+    yaml.push_str(&format!(
+        "  max_concurrent: {}\n",
+        subagents_max_concurrent
+    ));
+    yaml.push_str(&format!(
+        "  max_active_per_chat: {}\n",
+        subagents_max_active_per_chat
+    ));
+    yaml.push_str(&format!(
+        "  run_timeout_secs: {}\n",
+        subagents_run_timeout_secs
+    ));
+    yaml.push_str(&format!(
+        "  announce_to_chat: {}\n",
+        subagents_announce_to_chat
+    ));
+    yaml.push_str(&format!(
+        "  max_spawn_depth: {}\n",
+        subagents_max_spawn_depth
+    ));
+    yaml.push_str(&format!(
+        "  max_children_per_run: {}\n",
+        subagents_max_children_per_run
+    ));
+    yaml.push_str(&format!(
+        "  thread_bound_routing_enabled: {}\n",
+        subagents_thread_bound_routing_enabled
+    ));
+    yaml.push_str(&format!(
+        "  announce_relay_interval_secs: {}\n",
+        subagents_announce_relay_interval_secs
+    ));
+    yaml.push_str(&format!(
+        "  max_tokens_per_run: {}\n",
+        subagents_max_tokens_per_run
+    ));
+    yaml.push_str(&format!(
+        "  orchestrate_max_workers: {}\n",
+        subagents_orchestrate_max_workers
+    ));
     yaml.push('\n');
 
     yaml.push_str(
@@ -6376,6 +6789,25 @@ a2a:
     }
 
     #[test]
+    fn test_a2a_fields_render_in_a2a_section() {
+        assert_eq!(SetupApp::section_for_key(a2a_enabled_key()), "A2A");
+        assert_eq!(SetupApp::section_for_key(a2a_public_base_url_key()), "A2A");
+        assert_eq!(SetupApp::section_for_key("ENABLED_CHANNELS"), "Channel");
+    }
+
+    #[test]
+    fn test_subagent_fields_render_in_subagents_section() {
+        assert_eq!(
+            SetupApp::section_for_key(subagents_max_tokens_per_run_key()),
+            "Sub-agents"
+        );
+        assert_eq!(
+            SetupApp::section_for_key(subagents_run_timeout_secs_key()),
+            "Sub-agents"
+        );
+    }
+
+    #[test]
     fn test_setup_loads_existing_telegram_topic_routing() {
         let _guard = env_lock();
         let temp = std::env::temp_dir().join(format!(
@@ -6401,6 +6833,59 @@ channels:
 
         let app = SetupApp::new();
         assert_eq!(app.field_value(telegram_topic_routing_key()), "true");
+
+        std::env::set_current_dir(old_cwd).unwrap();
+        let _ = std::fs::remove_file(temp.join("microclaw.config.yaml"));
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn test_setup_loads_existing_subagents_settings() {
+        let _guard = env_lock();
+        let temp = std::env::temp_dir().join(format!(
+            "microclaw_setup_load_subagents_{}",
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        std::fs::create_dir_all(&temp).unwrap();
+        let old_cwd = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&temp).unwrap();
+        std::fs::write(
+            temp.join("microclaw.config.yaml"),
+            r#"
+bot_username: bot
+api_key: key
+subagents:
+  max_concurrent: 8
+  max_active_per_chat: 9
+  run_timeout_secs: 1800
+  announce_to_chat: false
+  max_spawn_depth: 2
+  max_children_per_run: 7
+  thread_bound_routing_enabled: false
+  announce_relay_interval_secs: 30
+  max_tokens_per_run: 240000
+  orchestrate_max_workers: 6
+"#,
+        )
+        .unwrap();
+
+        let app = SetupApp::new();
+        assert_eq!(app.field_value(subagents_max_concurrent_key()), "8");
+        assert_eq!(app.field_value(subagents_max_active_per_chat_key()), "9");
+        assert_eq!(app.field_value(subagents_run_timeout_secs_key()), "1800");
+        assert_eq!(app.field_value(subagents_announce_to_chat_key()), "false");
+        assert_eq!(app.field_value(subagents_max_spawn_depth_key()), "2");
+        assert_eq!(app.field_value(subagents_max_children_per_run_key()), "7");
+        assert_eq!(
+            app.field_value(subagents_thread_bound_routing_enabled_key()),
+            "false"
+        );
+        assert_eq!(
+            app.field_value(subagents_announce_relay_interval_secs_key()),
+            "30"
+        );
+        assert_eq!(app.field_value(subagents_max_tokens_per_run_key()), "240000");
+        assert_eq!(app.field_value(subagents_orchestrate_max_workers_key()), "6");
 
         std::env::set_current_dir(old_cwd).unwrap();
         let _ = std::fs::remove_file(temp.join("microclaw.config.yaml"));
@@ -6515,6 +7000,51 @@ channels:
         assert!(s.contains("  agent_name: \"Planner\"\n"));
         assert!(s.contains("  shared_tokens:\n"));
         assert!(s.contains("    worker:\n"));
+
+        let _ = fs::remove_file(&yaml_path);
+    }
+
+    #[test]
+    fn test_save_config_yaml_writes_subagents_section() {
+        let yaml_path = std::env::temp_dir().join(format!(
+            "microclaw_setup_subagents_test_{}.yaml",
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+
+        let mut values = HashMap::new();
+        values.insert("ENABLED_CHANNELS".into(), "web".into());
+        values.insert("LLM_PROVIDER".into(), "anthropic".into());
+        values.insert("LLM_API_KEY".into(), "key".into());
+        values.insert(subagents_max_concurrent_key().into(), "8".into());
+        values.insert(subagents_max_active_per_chat_key().into(), "9".into());
+        values.insert(subagents_run_timeout_secs_key().into(), "1800".into());
+        values.insert(subagents_announce_to_chat_key().into(), "false".into());
+        values.insert(subagents_max_spawn_depth_key().into(), "2".into());
+        values.insert(subagents_max_children_per_run_key().into(), "7".into());
+        values.insert(
+            subagents_thread_bound_routing_enabled_key().into(),
+            "false".into(),
+        );
+        values.insert(
+            subagents_announce_relay_interval_secs_key().into(),
+            "30".into(),
+        );
+        values.insert(subagents_max_tokens_per_run_key().into(), "240000".into());
+        values.insert(subagents_orchestrate_max_workers_key().into(), "6".into());
+
+        save_config_yaml(&yaml_path, &values).unwrap();
+        let s = fs::read_to_string(&yaml_path).unwrap();
+        assert!(s.contains("subagents:\n"));
+        assert!(s.contains("  max_concurrent: 8\n"));
+        assert!(s.contains("  max_active_per_chat: 9\n"));
+        assert!(s.contains("  run_timeout_secs: 1800\n"));
+        assert!(s.contains("  announce_to_chat: false\n"));
+        assert!(s.contains("  max_spawn_depth: 2\n"));
+        assert!(s.contains("  max_children_per_run: 7\n"));
+        assert!(s.contains("  thread_bound_routing_enabled: false\n"));
+        assert!(s.contains("  announce_relay_interval_secs: 30\n"));
+        assert!(s.contains("  max_tokens_per_run: 240000\n"));
+        assert!(s.contains("  orchestrate_max_workers: 6\n"));
 
         let _ = fs::remove_file(&yaml_path);
     }

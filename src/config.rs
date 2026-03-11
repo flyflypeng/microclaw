@@ -166,7 +166,7 @@ fn default_subagent_announce_relay_interval_secs() -> u64 {
     15
 }
 fn default_subagent_max_tokens_per_run() -> i64 {
-    120_000
+    400_000
 }
 fn default_subagent_orchestrate_max_workers() -> usize {
     5
