@@ -18,13 +18,13 @@ use tracing::{error, info, warn};
 use crate::agent_engine::{process_with_agent_with_events, AgentEvent, AgentRequestContext};
 use crate::chat_commands::handle_chat_command;
 use crate::config::{Config, WorkingDirIsolation};
-use crate::otlp::{OtlpExporter, OtlpMetricSnapshot};
 use crate::runtime::AppState;
 use microclaw_channels::channel::ConversationKind;
 use microclaw_channels::channel::{
     deliver_and_store_bot_message, get_chat_routing, session_source_for_chat,
 };
 use microclaw_channels::channel_adapter::{ChannelAdapter, ChannelRegistry};
+use microclaw_observability::metrics::{OtlpMetricExporter, OtlpMetricSnapshot};
 use microclaw_storage::db::{call_blocking, ChatSummary, MetricsHistoryPoint, StoredMessage};
 use microclaw_storage::usage::build_usage_report;
 
@@ -75,7 +75,7 @@ struct WebState {
     request_hub: RequestHub,
     auth_hub: AuthHub,
     metrics: Arc<Mutex<WebMetrics>>,
-    otlp: Option<Arc<OtlpExporter>>,
+    otlp: Option<Arc<OtlpMetricExporter>>,
     limits: WebLimits,
 }
 
@@ -1813,7 +1813,7 @@ pub async fn start_web_server(state: Arc<AppState>) {
         request_hub: RequestHub::default(),
         auth_hub: AuthHub::default(),
         metrics: Arc::new(Mutex::new(WebMetrics::default())),
-        otlp: OtlpExporter::from_config(&state.config),
+        otlp: state.metric_exporter.clone(),
         limits,
     };
 
@@ -2165,6 +2165,9 @@ mod tests {
             embedding: None,
             memory_backend: memory_backend.clone(),
             tools: ToolRegistry::new(&cfg, channel_registry, db, memory_backend),
+            metric_exporter: None,
+            trace_exporter: None,
+            log_exporter: None,
         };
         Arc::new(state)
     }

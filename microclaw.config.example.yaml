@@ -72,6 +72,44 @@ compact_keep_recent: 20
 # Set true to allow slash commands without mention in those contexts.
 # allow_group_slash_without_mention: false
 
+# Observability / Monitoring (OpenTelemetry + adapters)
+# observability:
+#   # Shared OpenTelemetry resource attributes
+#   service_name: "microclaw"
+#
+#   # Optional shared OTLP HTTP headers
+#   # otlp_headers:
+#   #   x-tenant-id: "tenant-a"
+#   #   authorization: "Bearer <token>"
+#
+#   # Metrics export
+#   otlp_enabled: false
+#   otlp_endpoint: "http://127.0.0.1:4318/v1/metrics"
+#   # Export interval for metrics reader
+#   otlp_export_interval_seconds: 15
+#
+#   # Traces export (explicit endpoint mode)
+#   otlp_tracing_enabled: false
+#   otlp_tracing_endpoint: "http://127.0.0.1:4318/v1/traces"
+#   # Optional queue tuning for high-throughput tracing
+#   # otlp_tracing_max_queue_size: 8192
+#   # otlp_tracing_max_export_batch_size: 512
+#   # otlp_tracing_scheduled_delay_ms: 1000
+#
+#   # Logs export (tracing events -> OTLP via opentelemetry-appender-tracing)
+#   otlp_logs_enabled: false
+#   otlp_logs_endpoint: "http://127.0.0.1:4318/v1/logs"
+#
+#   # Adapter mode: Langfuse (auto-build trace endpoint + Basic auth header)
+#   # langfuse_host: "https://cloud.langfuse.com" # or "http://127.0.0.1:3000" for self-hosted
+#   # IMPORTANT: use host root only, do not use UI project URL like /project/<id>/traces
+#   # langfuse_public_key: "pk-lf-..."
+#   # langfuse_secret_key: "sk-lf-..."
+#
+#   # Adapter mode: AgentOps (Bearer auth; can override endpoint)
+#   # agentops_api_key: "<agentops-api-key>"
+#   # agentops_otlp_endpoint: "https://otlp.agentops.ai/v1/traces"
+
 channels:
   web:
     enabled: true

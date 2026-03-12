@@ -1,5 +1,7 @@
 # Metrics and Tracing Guide
 
+For architecture and extension design, see [architecture.md](./architecture.md).
+
 ## Endpoints
 
 - `GET /api/metrics`: current counters/gauges snapshot.
@@ -84,24 +86,46 @@ OTLP export includes corresponding counters:
 - `microclaw_mcp_bulkhead_rejections`
 - `microclaw_mcp_circuit_open_rejections`
 
-## OTLP Exporter
+## OTLP Exporter (Metrics & Tracing)
 
-Optional OTLP/HTTP protobuf export:
+MicroClaw supports exporting both Metrics and Traces via OTLP/HTTP protobuf.
+
+### Metrics Export
+
+Configure metrics export in `microclaw.config.yaml`:
 
 ```yaml
-channels:
-  observability:
-    otlp_enabled: true
-    otlp_endpoint: "http://127.0.0.1:4318/v1/metrics"
-    service_name: "microclaw"
-    otlp_export_interval_seconds: 15
-    otlp_queue_capacity: 256
-    otlp_retry_max_attempts: 3
-    otlp_retry_base_ms: 500
-    otlp_retry_max_ms: 8000
-    otlp_headers:
-      Authorization: "Bearer <token>"
+observability:
+  otlp_enabled: true
+  otlp_endpoint: "http://127.0.0.1:4318/v1/metrics"
+  service_name: "microclaw"
+  otlp_export_interval_seconds: 15
+  otlp_queue_capacity: 256
+  otlp_retry_max_attempts: 3
+  otlp_retry_base_ms: 500
 ```
+
+### Tracing Export (Langfuse)
+
+MicroClaw provides first-class support for [Langfuse](https://langfuse.com) tracing.
+
+```yaml
+observability:
+  otlp_tracing_enabled: true
+  langfuse_host: "https://cloud.langfuse.com" # or your self-hosted instance
+  langfuse_public_key: "pk-lf-..."
+  langfuse_secret_key: "sk-lf-..."
+```
+
+When enabled, the following spans are generated:
+- `agent_run`: The root span for a complete agent request/turn.
+  - Attributes: `chat_id`, `model`, `usage.input_tokens`, `usage.output_tokens`, `microclaw.tool_calls`, etc.
+- `llm_generation`: Represents a call to the LLM provider.
+  - Attributes: `system_prompt`, `messages` (context), `output` (response), token usage.
+- `tool_execution`: Represents a tool call.
+  - Attributes: `tool.name`, `tool.input`, `tool.output`.
+
+This integration automatically handles authentication and OTLP endpoint construction for Langfuse.
 
 Retry/backoff behavior:
 

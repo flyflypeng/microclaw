@@ -38,6 +38,9 @@ use crate::skills::SkillManager;
 use crate::tools::ToolRegistry;
 use crate::web::WebAdapter;
 use microclaw_channels::channel_adapter::ChannelRegistry;
+use microclaw_observability::logs::OtlpLogExporter;
+use microclaw_observability::metrics::OtlpMetricExporter;
+use microclaw_observability::traces::OtlpTraceExporter;
 use microclaw_storage::db::Database;
 
 pub struct AppState {
@@ -53,6 +56,9 @@ pub struct AppState {
     pub embedding: Option<Arc<dyn EmbeddingProvider>>,
     pub memory_backend: Arc<MemoryBackend>,
     pub tools: ToolRegistry,
+    pub metric_exporter: Option<Arc<OtlpMetricExporter>>,
+    pub trace_exporter: Option<Arc<OtlpTraceExporter>>,
+    pub log_exporter: Option<Arc<OtlpLogExporter>>,
 }
 
 fn prepare_channel_runtimes<T, Build, Register, ModelOverride>(
@@ -425,6 +431,10 @@ pub async fn run(
 
     let hooks = Arc::new(HookManager::from_config(&config).with_db(db.clone()));
 
+    let metric_exporter = OtlpMetricExporter::from_observability(config.observability.as_ref());
+    let trace_exporter = OtlpTraceExporter::from_observability(config.observability.as_ref());
+    let log_exporter = OtlpLogExporter::from_observability(config.observability.as_ref());
+
     let state = Arc::new(AppState {
         config,
         channel_registry,
@@ -438,6 +448,9 @@ pub async fn run(
         embedding,
         memory_backend,
         tools,
+        metric_exporter,
+        trace_exporter,
+        log_exporter,
     });
 
     if let Err(err) = state.memory_backend.run_startup_health_check().await {

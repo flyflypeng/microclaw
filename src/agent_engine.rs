@@ -13,7 +13,15 @@ use microclaw_core::llm_types::{
     ContentBlock, ImageSource, Message, MessageContent, ResponseContentBlock,
 };
 use microclaw_core::text::floor_char_boundary;
+use microclaw_observability::traces::{
+    kv, kv_int, new_span_id, new_trace_id, now_unix_nano, SpanData,
+};
 use microclaw_storage::db::{call_blocking, StoredMessage};
+use opentelemetry_semantic_conventions::attribute::{
+    GEN_AI_OPERATION_NAME, GEN_AI_REQUEST_MODEL, GEN_AI_SYSTEM, GEN_AI_USAGE_INPUT_TOKENS,
+    GEN_AI_USAGE_OUTPUT_TOKENS, USER_ID,
+};
+use opentelemetry_proto::tonic::trace::v1::Status;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AgentRequestContext<'a> {
@@ -433,12 +441,106 @@ fn strip_slash_command_user_lines(messages: &mut Vec<Message>) {
     *messages = filtered;
 }
 
+#[derive(Default)]
+struct AgentMetrics {
+    input_tokens: i64,
+    output_tokens: i64,
+    tool_calls: i64,
+    tool_errors: i64,
+    model: String,
+    input_text: String,
+}
+
 pub(crate) async fn process_with_agent_impl(
     state: &AppState,
     context: AgentRequestContext<'_>,
     override_prompt: Option<&str>,
     image_data: Option<(String, String)>,
     event_tx: Option<&UnboundedSender<AgentEvent>>,
+) -> anyhow::Result<String> {
+    let trace_id = new_trace_id();
+    let root_span_id = new_span_id();
+    let start_time = now_unix_nano();
+    let mut metrics = AgentMetrics::default();
+
+    let result = process_with_agent_logic(
+        state,
+        context,
+        override_prompt,
+        image_data,
+        event_tx,
+        &mut metrics,
+        &trace_id,
+        &root_span_id,
+    )
+    .await;
+
+    if let Some(exp) = &state.trace_exporter {
+        let mut attrs = vec![
+            kv(GEN_AI_OPERATION_NAME, "agent_run"),
+            kv(GEN_AI_SYSTEM, "microclaw"),
+            kv_int("chat_id", context.chat_id),
+            kv("channel", context.caller_channel),
+            kv(USER_ID, &format!("{}", context.chat_id)),
+            kv(GEN_AI_REQUEST_MODEL, &metrics.model),
+            kv("input", &metrics.input_text),
+            kv_int(GEN_AI_USAGE_INPUT_TOKENS, metrics.input_tokens),
+            kv_int(GEN_AI_USAGE_OUTPUT_TOKENS, metrics.output_tokens),
+            kv_int(
+                "gen_ai.usage.total_tokens",
+                metrics.input_tokens + metrics.output_tokens,
+            ),
+            kv_int("microclaw.tool_calls", metrics.tool_calls),
+            kv_int("microclaw.tool_errors", metrics.tool_errors),
+        ];
+
+        let (status, error_msg) = match &result {
+            Ok(_) => (
+                Some(Status {
+                    message: "".to_string(),
+                    code: 1, // Ok
+                }),
+                None,
+            ),
+            Err(e) => (
+                Some(Status {
+                    message: e.to_string(),
+                    code: 2, // Error
+                }),
+                Some(e.to_string()),
+            ),
+        };
+
+        if let Some(msg) = error_msg {
+            attrs.push(kv("error.message", &msg));
+        }
+
+        exp.send_span(SpanData {
+            trace_id,
+            span_id: root_span_id,
+            parent_span_id: vec![],
+            name: "agent_run".to_string(),
+            start_time_unix_nano: start_time,
+            end_time_unix_nano: now_unix_nano(),
+            attributes: attrs,
+            status,
+            kind: 1, // Internal
+        });
+    }
+
+    result
+}
+
+#[expect(clippy::too_many_arguments)]
+async fn process_with_agent_logic(
+    state: &AppState,
+    context: AgentRequestContext<'_>,
+    override_prompt: Option<&str>,
+    image_data: Option<(String, String)>,
+    event_tx: Option<&UnboundedSender<AgentEvent>>,
+    metrics: &mut AgentMetrics,
+    trace_id: &[u8],
+    parent_span_id: &[u8],
 ) -> anyhow::Result<String> {
     let chat_id = context.chat_id;
     let request_start = std::time::Instant::now();
@@ -555,6 +657,9 @@ pub(crate) async fn process_with_agent_impl(
         .find(|m| m.role == "user")
         .map(message_to_text)
         .unwrap_or_default();
+
+    metrics.input_text = latest_user_text_for_approval.clone();
+
     let explicit_user_approval = is_explicit_user_approval(&latest_user_text_for_approval);
 
     // Build system prompt
@@ -679,6 +784,7 @@ pub(crate) async fn process_with_agent_impl(
     let mut empty_visible_reply_retry_attempted = false;
     let (effective_profile, effective_model) =
         resolve_effective_provider_and_model(state, context.caller_channel).await;
+    metrics.model = effective_model.clone();
     let scoped_provider = if effective_profile.alias != state.config.llm_provider {
         Some(crate::llm::create_provider(&build_provider_runtime_config(
             state,
@@ -731,6 +837,9 @@ pub(crate) async fn process_with_agent_impl(
                 }
             }
         }
+        let llm_span_id = new_span_id();
+        let llm_start = now_unix_nano();
+
         let response = if let Some(tx) = event_tx {
             let (llm_tx, mut llm_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
             let forward_tx = tx.clone();
@@ -785,7 +894,68 @@ pub(crate) async fn process_with_agent_impl(
                 .await?
         };
 
+        if let Some(exp) = &state.trace_exporter {
+            let mut attrs = vec![
+                kv(GEN_AI_OPERATION_NAME, "chat"),
+                kv(GEN_AI_SYSTEM, &effective_profile.provider),
+                kv(GEN_AI_REQUEST_MODEL, &effective_model),
+            ];
+            // Combine system prompt and messages for input visualization
+            let input_repr = if let Ok(json) = serde_json::to_string(&messages) {
+                if !system_prompt.is_empty() {
+                    format!(
+                        "System: {}\nMessages: {}",
+                        truncate_for_log(&system_prompt, 1000),
+                        truncate_for_log(&json, 9000)
+                    )
+                } else {
+                    truncate_for_log(&json, 10000)
+                }
+            } else {
+                truncate_for_log(&system_prompt, 2000)
+            };
+            attrs.push(kv("input", &input_repr));
+
+            if let Some(usage) = &response.usage {
+                attrs.push(kv_int(GEN_AI_USAGE_INPUT_TOKENS, usage.input_tokens as i64));
+                attrs.push(kv_int(
+                    GEN_AI_USAGE_OUTPUT_TOKENS,
+                    usage.output_tokens as i64,
+                ));
+            }
+            let output_text = response
+                .content
+                .iter()
+                .map(|b| match b {
+                    ResponseContentBlock::Text { text } => text.clone(),
+                    ResponseContentBlock::ToolUse { name, input, .. } => {
+                        format!("[tool_use: {}({})]", name, input)
+                    }
+                    _ => "[other]".to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            attrs.push(kv("output", &output_text));
+
+            exp.send_span(SpanData {
+                trace_id: trace_id.to_vec(),
+                span_id: llm_span_id,
+                parent_span_id: parent_span_id.to_vec(),
+                name: "llm_generation".to_string(),
+                start_time_unix_nano: llm_start,
+                end_time_unix_nano: now_unix_nano(),
+                attributes: attrs,
+                status: Some(Status {
+                    message: "".to_string(),
+                    code: 1,
+                }),
+                kind: 2, // Client/Internal
+            });
+        }
+
         if let Some(usage) = &response.usage {
+            metrics.input_tokens += usage.input_tokens as i64;
+            metrics.output_tokens += usage.output_tokens as i64;
             let channel = context.caller_channel.to_string();
             let provider = effective_profile.alias.clone();
             let model = effective_model.clone();
@@ -1184,10 +1354,53 @@ pub(crate) async fn process_with_agent_impl(
                     );
                     let started = std::time::Instant::now();
                     let mut executed_input = effective_input.clone();
+
+                    let tool_span_id = new_span_id();
+                    let tool_start = now_unix_nano();
+                    metrics.tool_calls += 1;
+
                     let mut result = state
                         .tools
                         .execute_with_auth(name, executed_input.clone(), &tool_auth)
                         .await;
+
+                    if let Some(exp) = &state.trace_exporter {
+                        let mut attrs = vec![
+                            kv("tool.name", name),
+                            kv("input", &executed_input.to_string()),
+                        ];
+                        if result.is_error {
+                            attrs.push(kv(
+                                "error.type",
+                                result.error_type.as_deref().unwrap_or("unknown"),
+                            ));
+                            attrs.push(kv("output", &result.content));
+                        } else {
+                            attrs.push(kv("output", &truncate_for_log(&result.content, 1000)));
+                        }
+
+                        exp.send_span(SpanData {
+                            trace_id: trace_id.to_vec(),
+                            span_id: tool_span_id,
+                            parent_span_id: parent_span_id.to_vec(),
+                            name: "tool_execution".to_string(),
+                            start_time_unix_nano: tool_start,
+                            end_time_unix_nano: now_unix_nano(),
+                            attributes: attrs,
+                            status: if result.is_error {
+                                Some(Status {
+                                    message: result.content.clone(),
+                                    code: 2,
+                                })
+                            } else {
+                                Some(Status {
+                                    message: "".to_string(),
+                                    code: 1,
+                                })
+                            },
+                            kind: 1,
+                        });
+                    }
                     // Auto-retry on approval_required with explicit approval marker.
                     if result.is_error && result.error_type.as_deref() == Some("approval_required")
                     {
@@ -1204,10 +1417,56 @@ pub(crate) async fn process_with_agent_impl(
                             } else {
                                 info!("Auto-retrying tool '{}' after approval gate", name);
                             }
+                            let retry_span_id = new_span_id();
+                            let retry_start = now_unix_nano();
+                            metrics.tool_calls += 1;
+
                             result = state
                                 .tools
                                 .execute_with_auth(name, executed_input.clone(), &tool_auth)
                                 .await;
+
+                            if let Some(exp) = &state.trace_exporter {
+                                let mut attrs = vec![
+                                    kv("tool.name", name),
+                                    kv("input", &executed_input.to_string()),
+                                    kv("is_retry", "true"),
+                                ];
+                                if result.is_error {
+                                    attrs.push(kv(
+                                        "error.type",
+                                        result.error_type.as_deref().unwrap_or("unknown"),
+                                    ));
+                                    attrs.push(kv("output", &result.content));
+                                } else {
+                                    attrs.push(kv(
+                                        "output",
+                                        &truncate_for_log(&result.content, 1000),
+                                    ));
+                                }
+
+                                exp.send_span(SpanData {
+                                    trace_id: trace_id.to_vec(),
+                                    span_id: retry_span_id,
+                                    parent_span_id: parent_span_id.to_vec(),
+                                    name: "tool_execution_retry".to_string(),
+                                    start_time_unix_nano: retry_start,
+                                    end_time_unix_nano: now_unix_nano(),
+                                    attributes: attrs,
+                                    status: if result.is_error {
+                                        Some(Status {
+                                            message: result.content.clone(),
+                                            code: 2,
+                                        })
+                                    } else {
+                                        Some(Status {
+                                            message: "".to_string(),
+                                            code: 1,
+                                        })
+                                    },
+                                    kind: 1,
+                                });
+                            }
                         } else if state.config.high_risk_tool_user_confirmation_required {
                             waiting_for_user_approval = true;
                             waiting_approval_tool = Some(name.clone());
@@ -1337,6 +1596,10 @@ pub(crate) async fn process_with_agent_impl(
                             error_type: result.error_type.clone(),
                         });
                     }
+                    if result.is_error {
+                        metrics.tool_errors += 1;
+                    }
+
                     if name == "send_message" {
                         consecutive_send_message_calls += 1;
                     }
@@ -2370,6 +2633,9 @@ mod tests {
             embedding: None,
             memory_backend: memory_backend.clone(),
             tools: ToolRegistry::new(&cfg, channel_registry, db, memory_backend),
+            metric_exporter: None,
+            trace_exporter: None,
+            log_exporter: None,
         })
     }
 

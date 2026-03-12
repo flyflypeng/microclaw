@@ -569,9 +569,9 @@ async fn main() -> anyhow::Result<()> {
     migrate_legacy_skills_dir(&legacy_skills_dir, Path::new(&skills_data_dir));
 
     if std::env::var("MICROCLAW_GATEWAY").is_ok() {
-        logging::init_logging(&runtime_data_dir)?;
+        logging::init_logging(&runtime_data_dir, config.observability.as_ref())?;
     } else {
-        logging::init_console_logging();
+        logging::init_console_logging(config.observability.as_ref());
     }
 
     builtin_skills::ensure_builtin_skills(Path::new(&skills_data_dir))?;

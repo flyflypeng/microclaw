@@ -73,6 +73,9 @@ pub async fn serve(
         embedding,
         memory_backend,
         tools,
+        metric_exporter: None,
+        trace_exporter: None,
+        log_exporter: None,
     });
 
     crate::scheduler::spawn_scheduler(app_state.clone());

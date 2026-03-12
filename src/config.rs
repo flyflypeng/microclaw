@@ -497,6 +497,10 @@ pub struct Config {
     #[serde(default, rename = "voice_transcription_command")]
     pub voice_transcription_command: Option<String>,
 
+    // --- Observability ---
+    #[serde(default)]
+    pub observability: Option<serde_yaml::Value>,
+
     // --- Channel registry (new dynamic config) ---
     /// Per-channel configuration. Keys are channel names (e.g. "telegram", "discord", "slack", "irc", "web").
     /// Each value is channel-specific config deserialized by the adapter.
@@ -754,6 +758,7 @@ impl Config {
             plugins: PluginsConfig::default(),
             voice_provider: "openai".into(),
             voice_transcription_command: None,
+            observability: None,
             channels: HashMap::new(),
         }
     }

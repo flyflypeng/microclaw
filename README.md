@@ -47,6 +47,7 @@ An agentic AI assistant for chat surfaces, inspired by [nanoclaw](https://github
 - [Usage examples](#usage-examples)
 - [Architecture](#architecture)
 - [Adding a New Platform Adapter](#adding-a-new-platform-adapter)
+- [Observability (Langfuse)](#observability-langfuse)
 - [Documentation](#documentation)
 
 ## Install
@@ -1200,6 +1201,54 @@ MicroClaw's core loop is channel-agnostic. A new platform integration should mai
 5. Preserve session key stability so resume/compaction/memory continue to work across restarts.
 6. Apply existing authorization and safety boundaries (`control_chat_ids`, tool constraints, path guard).
 7. Add adapter-specific integration tests under `TEST.md` patterns (DM/private, group/server mention, `/reset`, limits, failures).
+
+## Observability (Langfuse)
+
+MicroClaw supports OpenTelemetry (OTLP) based observability, allowing you to trace agent execution flows, monitor token usage, and debug tool calls. We provide first-class integration with [Langfuse](https://langfuse.com/), an open-source LLM engineering platform.
+
+### Features
+- **Full Tracing**: Trace the entire lifecycle of an agent request (`agent_run`), including LLM generations (`llm_generation`) and tool executions (`tool_execution`).
+- **Metrics**: Monitor input/output token usage, latency, and costs.
+- **Debug**: View detailed inputs and outputs for every step, including system prompts and tool results.
+
+### Configuration
+
+To enable observability, add the following section to your `microclaw.config.yaml` file:
+
+```yaml
+observability:
+  # Enable OTLP tracing
+  otlp_tracing_enabled: true
+  
+  # Langfuse Configuration
+  # If using Langfuse Cloud: https://cloud.langfuse.com
+  # If self-hosting: http://your-langfuse-instance:3000
+  langfuse_host: "https://cloud.langfuse.com" 
+  
+  # Get these keys from your Langfuse Project Settings
+  langfuse_public_key: "pk-lf-..."
+  langfuse_secret_key: "sk-lf-..."
+```
+
+Once configured, restart MicroClaw, and your agent traces will automatically appear in your Langfuse dashboard.
+
+### Local self-hosted Langfuse example
+
+If your Langfuse is deployed locally (for example `http://127.0.0.1:3000`), you can use:
+
+```yaml
+observability:
+  service_name: "microclaw-local"
+  otlp_tracing_enabled: true
+  langfuse_host: "http://127.0.0.1:3000"
+  langfuse_public_key: "pk-lf-local-..."
+  langfuse_secret_key: "sk-lf-local-..."
+```
+
+Notes:
+- `langfuse_host` should be the Langfuse Web/API base URL, without `/api/public/otel/v1/traces`.
+- MicroClaw auto-constructs the OTLP traces endpoint and Basic Auth header from Langfuse keys.
+- If MicroClaw runs in Docker, use container-reachable hostnames (for example `http://langfuse-web:3000`) instead of `127.0.0.1`.
 
 ## Documentation
 
