@@ -217,6 +217,15 @@ async fn start_stream_run_internal(
                         .unwrap_or_default()
                         .to_string();
                     let was_aborted = response_text == crate::run_control::STOPPED_TEXT;
+                    if was_aborted {
+                        info!(
+                            target: "web",
+                            endpoint = endpoint,
+                            session_key = %session_key,
+                            run_id = %run_id_for_task,
+                            "stream run detected abort - response was STOPPED_TEXT"
+                        );
+                    }
 
                     if was_aborted {
                         // Agent was interrupted — collect buffered text and publish

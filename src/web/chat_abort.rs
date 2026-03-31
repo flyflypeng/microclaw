@@ -95,10 +95,23 @@ pub async fn abort_chat_run_by_id(
     };
 
     let Some(entry) = entry else {
+        tracing::debug!(
+            target: "chat_abort",
+            run_id = %run_id,
+            session_key = %session_key,
+            "abort_chat_run_by_id: run not found"
+        );
         return (false, None);
     };
 
     if entry.session_key != session_key {
+        tracing::debug!(
+            target: "chat_abort",
+            run_id = %run_id,
+            session_key = %session_key,
+            entry_session_key = %entry.session_key,
+            "abort_chat_run_by_id: session_key mismatch"
+        );
         return (false, None);
     }
 
@@ -112,6 +125,14 @@ pub async fn abort_chat_run_by_id(
     } else {
         Some(text.to_string())
     };
+
+    tracing::debug!(
+        target: "chat_abort",
+        run_id = %run_id,
+        session_key = %session_key,
+        has_partial = %partial_text.is_some(),
+        "abort_chat_run_by_id: abort signaled"
+    );
 
     (true, partial_text)
 }
@@ -136,16 +157,29 @@ pub async fn abort_chat_runs_for_session_key(
     }; // guard dropped here
 
     if entries_to_abort.is_empty() {
+        tracing::debug!(
+            target: "chat_abort",
+            session_key = %session_key,
+            "abort_chat_runs_for_session_key: no runs found for session"
+        );
         return (false, Vec::new(), Vec::new());
     }
 
     let mut run_ids = Vec::new();
     let mut partials = Vec::new();
     for (run_id, buffer) in entries_to_abort {
-        run_ids.push(run_id);
+        run_ids.push(run_id.clone());
         let text = buffer.read().await.trim().to_string();
         partials.push(text);
     }
+
+    tracing::debug!(
+        target: "chat_abort",
+        session_key = %session_key,
+        run_ids = ?run_ids,
+        "abort_chat_runs_for_session_key: aborted {} runs",
+        run_ids.len()
+    );
 
     (true, run_ids, partials)
 }

@@ -812,6 +812,15 @@ async fn handle_request_frame(
 
             // Actually interrupt the agent loop via run_control
             let aborted = crate::run_control::abort_runs("web", chat_id).await;
+            info!(
+                target: "web",
+                method = "chat.abort",
+                session_key = %session_key,
+                run_id = ?params.run_id,
+                chat_id = chat_id,
+                aborted_count = aborted,
+                "chat.abort completed"
+            );
 
             let res = ResponseFrame {
                 kind: "res",

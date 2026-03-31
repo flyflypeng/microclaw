@@ -148,6 +148,13 @@ pub async fn process_with_agent_with_events(
             notify.notified().await;
         } => {
             // Signal cancellation explicitly via event type — not via FinalResponse with magic string.
+            tracing::info!(
+                target: "agent_engine",
+                channel = %context.caller_channel,
+                chat_id = %context.chat_id,
+                run_id = %run_id,
+                "agent loop cancellation triggered via notify"
+            );
             if let Some(tx) = event_tx {
                 let _ = tx.send(AgentEvent::Cancelled {
                     final_text: run_control::STOPPED_TEXT.to_string(),

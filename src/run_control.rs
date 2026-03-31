@@ -65,6 +65,14 @@ pub async fn abort_runs(channel: &str, chat_id: i64) -> usize {
         .filter_map(|r| r.source_message_id.clone())
         .collect();
     let count = runs.len();
+    tracing::info!(
+        target: "run_control",
+        channel = %channel,
+        chat_id = %chat_id,
+        run_count = %count,
+        aborted_source_ids = ?aborted_source_ids,
+        "abort_runs firing - notifying waiters and marking cancelled"
+    );
     for run in runs {
         run.cancelled.store(true, Ordering::SeqCst);
         run.notify.notify_waiters();
