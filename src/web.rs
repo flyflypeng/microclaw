@@ -40,7 +40,7 @@ mod stream;
 mod ws;
 use middleware::*;
 
-static WEB_ASSETS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/web/dist");
+include!(concat!(env!("OUT_DIR"), "/web_assets.rs"));
 pub(crate) const DEFAULT_WEB_PASSWORD: &str = "helloworld";
 
 pub struct WebAdapter;
