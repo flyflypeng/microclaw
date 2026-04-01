@@ -31,13 +31,14 @@ fn ensure_web_assets() {
     let source_dist = Path::new("web/dist");
     let skip_web_build = env::var_os("MICROCLAW_SKIP_WEB_BUILD").is_some();
 
-    if web_assets_need_rebuild(source_dist) {
-        if skip_web_build {
+    if skip_web_build {
+        if !has_required_web_assets(source_dist) {
             panic!(
-                "web assets are missing or stale, but MICROCLAW_SKIP_WEB_BUILD is set; \
+                "web assets are missing, but MICROCLAW_SKIP_WEB_BUILD is set; \
                  regenerate web/dist before building"
             );
         }
+    } else if web_assets_need_rebuild(source_dist) {
         build_web_assets();
     }
 
